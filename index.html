@@ -816,94 +816,97 @@
           let maxFetches = 10; // Limit to 10 fetches (1000 total entries max)
           let fetchCount = 0;
           
-          // Fetch first page to get total count
-          console.log("Fetching first page to determine total...");
-          const statusEl = document.getElementById('load-status');
-          if (statusEl) statusEl.textContent = "Fetching initial data...";
-          
-          const firstRequestBody = {
-            limit: limit,
-            offset: 0,
-            request_data: {
-              policy_area: [6]  // Filter for "Artificial intelligence" only
-            }
-          };
-          
-          const firstResponse = await fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `APIKey ${apiKey}`
-            },
-            body: JSON.stringify(firstRequestBody)
-          });
-          
-          if (!firstResponse.ok) {
-            const errorText = await firstResponse.text();
-            console.error("API Error Response:", errorText);
-            throw new Error(`HTTP error! status: ${firstResponse.status}`);
-          }
-          
-          const firstData = await firstResponse.json();
-          const totalCount = firstData.count || 0;
-          console.log(`Total AI interventions available: ${totalCount}`);
-          
-          // Add first page results
-          if (firstData.results && Array.isArray(firstData.results)) {
-            allData.push(...firstData.results);
-          }
-          
-          // Calculate remaining pages (up to maxFetches total)
-          const totalPages = Math.min(maxFetches, Math.ceil(totalCount / limit));
-          const remainingPages = totalPages - 1; // Already fetched page 1
-          
-          if (statusEl) statusEl.textContent = `Loading ${totalPages} pages in parallel...`;
-          
-          // Fetch remaining pages in parallel for speed
-          if (remainingPages > 0) {
-            const fetchPromises = [];
+          // Fetch data with pagination
+          while (hasMoreData && fetchCount < maxFetches) {
+            console.log(`Fetching data at offset ${offset}...`);
             
-            for (let page = 1; page <= remainingPages; page++) {
-              const pageOffset = page * limit;
-              const pageRequestBody = {
-                limit: limit,
-                offset: pageOffset,
-                request_data: {
-                  policy_area: [6]
-                }
-              };
-              
-              fetchPromises.push(
-                fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `APIKey ${apiKey}`
-                  },
-                  body: JSON.stringify(pageRequestBody)
-                })
-                .then(response => response.ok ? response.json() : null)
-                .then(data => {
-                  if (data && data.results) {
-                    console.log(`Page ${page + 1} fetched: ${data.results.length} entries`);
-                    return data.results;
-                  }
-                  return [];
-                })
-                .catch(error => {
-                  console.warn(`Error fetching page ${page + 1}:`, error);
-                  return [];
-                })
-              );
-            }
+            const statusEl = document.getElementById('load-status');
+            if (statusEl) statusEl.textContent = `Fetching batch ${fetchCount + 1}...`;
             
-            // Wait for all parallel requests to complete
-            const results = await Promise.all(fetchPromises);
-            results.forEach(pageResults => {
-              if (pageResults.length > 0) {
-                allData.push(...pageResults);
+            const requestBody = {
+              limit: limit,
+              offset: offset,
+              request_data: {
+                policy_area: [6]  // 6 = "Artificial intelligence" from API docs
               }
+            };
+            
+            console.log("Sending request body:", JSON.stringify(requestBody, null, 2));
+            
+            const response = await fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `APIKey ${apiKey}`
+              },
+              body: JSON.stringify(requestBody)
             });
+            
+            console.log("Got response, status:", response.status);
+            if (statusEl) statusEl.textContent = `Processing response (status: ${response.status})...`;
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("API Error Response:", errorText);
+              
+              // Check if it's a rate limit error
+              if (response.status === 403 && errorText.includes("Rate limit")) {
+                console.error("Rate limit reached - silently failing");
+                throw new Error(`Rate limit reached. The API allows a maximum of 1000 entries per 24 hours. Please try again tomorrow or contact the API provider for increased limits.`);
+              }
+              
+              throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            
+            // Debug: Log full API response structure
+            if (offset === 0) {
+              console.log("Full API Response:", data);
+              console.log("Type of data:", typeof data);
+              console.log("Is array:", Array.isArray(data));
+              console.log("Has 'results' property:", data && data.results !== undefined);
+              console.log("Has 'count' property:", data && data.count !== undefined);
+              
+              if (Array.isArray(data) && data.length > 0) {
+                console.log("Array length:", data.length);
+                console.log("First item:", data[0]);
+                console.log("First item keys:", Object.keys(data[0]));
+              } else if (data && data.results && Array.isArray(data.results)) {
+                console.log("Results array length:", data.results.length);
+                if (data.results.length > 0) {
+                  console.log("First result:", data.results[0]);
+                  console.log("First result keys:", Object.keys(data.results[0]));
+                }
+              }
+            }
+            
+            // Handle both response formats: direct array OR results object
+            let results = [];
+            if (Array.isArray(data)) {
+              results = data;
+              console.log("Using data as direct array, length:", results.length);
+            } else if (data && data.results && Array.isArray(data.results)) {
+              results = data.results;
+              console.log("Using data.results array, length:", results.length);
+            } else {
+              console.error("Unexpected API response format:", data);
+            }
+            
+            console.log(`Fetched ${results.length} entries at offset ${offset}`);
+            
+            if (results.length > 0) {
+              allData.push(...results);
+              offset += limit;
+              fetchCount++;
+              
+              // Check if we've fetched all available data
+              if (results.length < limit) {
+                hasMoreData = false;
+              }
+            } else {
+              hasMoreData = false;
+            }
           }
           
           console.log(`Total entries fetched: ${allData.length}`);
@@ -913,8 +916,41 @@
             console.log("Sample raw data items:", allData.slice(0, 3));
           }
           
-          // Since we filtered by policy_area:6 at the API level, all results are already AI-related
-          const aiRelatedData = allData;
+          // Filter for AI-related content
+          const aiRelatedData = allData.filter(item => {
+            const searchText = (
+              (item.title || '') + ' ' +
+              (item.description || '')
+            ).toLowerCase();
+            
+            const aiTerms = [
+              'artificial intelligence',
+              'machine learning',
+              'ai ',
+              ' ai',
+              'neural network',
+              'deep learning',
+              'generative ai',
+              'algorithmic',
+              'automation',
+              'ai-powered',
+              'ai system',
+              'ai model',
+              'ai act'
+            ];
+            
+            const isAiRelated = aiTerms.some(term => searchText.includes(term));
+            
+            // Log first few items to see what's being filtered
+            if (allData.indexOf(item) < 5) {
+              console.log(`Item ${allData.indexOf(item)} - AI Related: ${isAiRelated}`, {
+                title: item.title,
+                searchText: searchText.substring(0, 200)
+              });
+            }
+            
+            return isAiRelated;
+          });
           
           console.log(`AI-related entries: ${aiRelatedData.length}`);
           console.log("Sample AI-related data:", aiRelatedData.slice(0, 3));
@@ -943,7 +979,7 @@
               eventDate: item.date || 'Unknown Date',
               eventDescription: fullDescription,
               actionType: item.event_type || item.action_type || 'Unknown Action',
-              SourceURL: item.url || '#'
+              SourceURL: item.url || (item.id ? `https://digitalpolicyalert.org/event/${item.id}` : '#')
             };
           });
           
