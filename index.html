@@ -166,30 +166,6 @@
         color: #666;
         margin-top: 20px;
       }
-      .error-message {
-        background-color: #fee;
-        border: 1px solid #fcc;
-        padding: 15px;
-        margin: 15px 0;
-        border-radius: 4px;
-        color: #c33;
-      }
-      .success-message {
-        background-color: #efe;
-        border: 1px solid #cfc;
-        padding: 15px;
-        margin: 15px 0;
-        border-radius: 4px;
-        color: #3c3;
-      }
-      .loading-progress {
-        background-color: #e3f2fd;
-        border: 1px solid #90caf9;
-        padding: 15px;
-        margin: 15px 0;
-        border-radius: 4px;
-        color: #1976d2;
-      }
     </style>
     <script src="https://d3js.org/d3.v6.min.js"></script>
     <script src="https://unpkg.com/topojson@3"></script>
@@ -226,19 +202,6 @@
       </footer>
     </main>
     <script>
-      // ========================================
-      // CONFIGURATION: ADD YOUR API KEY HERE
-      // ========================================
-      // Get your free API key from: https://digitalpolicyalert.org/account/api-keys
-      // This is REQUIRED for the worldwide map to work reliably.
-      // 
-      // IMPORTANT: If deploying publicly, use environment variables or a backend proxy
-      // to keep your API key secure. For testing/personal use, you can add it here:
-      
-      const DPA_API_KEY = '198f8bd50e6f05610cd1088e4f3a4b387e375ce8'; // <-- API KEY ADDED
-      
-      // ========================================
-      
       const stateNameToAbbreviation = {
         Alabama: "AL",
         Alaska: "AK",
@@ -292,56 +255,6 @@
         Wyoming: "WY",
       };
 
-      // Global legislation data storage
-      let worldwideLegislationData = [];
-      let isLoadingWorldwideData = false;
-
-      // Cache keys
-      const CACHE_KEY = 'worldwideRegulations';
-      const CACHE_TIMESTAMP_KEY = 'worldwideRegulationsTimestamp';
-      const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-      
-
-      // Function to check if cache is valid
-      function isCacheValid() {
-        const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-        if (!timestamp) return false;
-        
-        const cacheAge = Date.now() - parseInt(timestamp);
-        return cacheAge < CACHE_DURATION;
-      }
-
-      // Function to load cached data
-      function loadCachedData() {
-        if (isCacheValid()) {
-          const cachedData = localStorage.getItem(CACHE_KEY);
-          if (cachedData) {
-            try {
-              worldwideLegislationData = JSON.parse(cachedData);
-              console.log(`Loaded ${worldwideLegislationData.length} regulations from cache`);
-              return true;
-            } catch (error) {
-              console.error("Error parsing cached data:", error);
-              localStorage.removeItem(CACHE_KEY);
-              localStorage.removeItem(CACHE_TIMESTAMP_KEY);
-            }
-          }
-        }
-        return false;
-      }
-
-      // Function to save data to cache
-      function saveCacheData(data) {
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-          localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
-          console.log("Data saved to cache");
-        } catch (error) {
-          console.error("Error saving to cache:", error);
-        }
-      }
-
-      // US MAP CODE - Original sophisticated implementation
       const width = 960;
       const height = 600;
 
@@ -437,7 +350,7 @@
 
           console.log("Current session:", currentSession);
 
-          // Now, perform the search using the session ID
+          // Now, perform the search using the session ID (without year restriction)
           const query = encodeURIComponent(searchTerms.join(" OR "));
           const searchUrl = `https://api.legiscan.com/?key=${apiKey}&op=getSearch&state=${stateAbbr}&query=${query}&session=${currentSession.session_id}`;
 
@@ -517,7 +430,6 @@
 
         document.getElementById("loading").style.display = "none";
       };
-      
       const stateNameElement = document.getElementById("state-name");
 
       const highlightState = (state) => {
@@ -525,7 +437,6 @@
         svg.select(`path[data-state="${state}"]`).classed("active", true);
         stateNameElement.textContent = state;
       };
-      
       d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json").then(
         (data) => {
           const states = topojson.feature(data, data.objects.states);
@@ -618,7 +529,7 @@
         padding: 12px 17px;
         border-radius: 50px;
         background-color: #2222220d;
-        color: #222;
+        color: #222
         font-size: 16px;
         font-weight: 500;
         transition: background-color 0.3s ease;
@@ -653,9 +564,10 @@
         legislationContainer.innerHTML = `<p>No AI-related regulations found for ${state}.</p>`;
       };
 
-      // World Map Code
+      // World map
       const worldWidth = 960;
       const worldHeight = 500;
+
       const worldSvg = d3
         .select("#world-map")
         .append("svg")
@@ -666,11 +578,13 @@
         .geoNaturalEarth1()
         .scale(worldWidth / 2 / Math.PI)
         .translate([worldWidth / 2, worldHeight / 2]);
+
       const worldPath = d3.geoPath().projection(worldProjection);
 
+      // Load world map data
       d3.json(
         "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
-      ).then((world) => {
+      ).then(function (world) {
         worldSvg
           .append("g")
           .selectAll("path")
@@ -679,460 +593,377 @@
           .append("path")
           .attr("d", worldPath)
           .attr("class", "country")
-          .attr("id", (d) => (d.properties.name ? d.properties.name.replace(/\s+/g, "-") : "unknown"))
           .on("click", function (event, d) {
-            d3.selectAll(".country").classed("active", false);
-            d3.select(this).classed("active", true);
             const countryName = d.properties.name;
-            
-            const container = document.getElementById("worldwide-container");
-            const countryLegislation = worldwideLegislationData.filter(
-              (leg) => leg.country.toLowerCase() === countryName.toLowerCase()
-            );
-
-            if (countryLegislation.length > 0) {
-              container.innerHTML = `
-                <h3>${countryName} - ${countryLegislation.length} AI Regulation(s)</h3>
-                ${countryLegislation
-                  .map(
-                    (leg) => `
-                  <div class="country-legislation">
-                      <h5>${leg.interventionName}</h5>
-                      <p><strong>Status:</strong> ${leg.interventionStatus}</p>
-                      <p><strong>Date:</strong> ${leg.eventDate}</p>
-                      <p><strong>Type:</strong> ${leg.actionType}</p>
-                      <p>${leg.eventDescription}</p>
-                      <p><a href="${leg.SourceURL}" target="_blank">View Source</a></p>
-                  </div>
-                `
-                  )
-                  .join("")}
-              `;
-            } else {
-              container.innerHTML = `<p>No AI-related regulations found for ${countryName} in our database.</p>`;
-            }
+            highlightCountry(this, countryName);
           });
       });
 
-      // IMPROVED: Load worldwide data with CORS proxy support and optional authentication
-      async function loadWorldwideData(forceRefresh = false) {
-        if (isLoadingWorldwideData) {
-          console.log("Already loading data, skipping duplicate request");
+      function highlightCountry(country, countryName) {
+        worldSvg.selectAll(".country").classed("active", false);
+        d3.select(country).classed("active", true);
+        document.getElementById("worldwide-container").innerHTML = ""; // Clear previous content
+        displayCountryLegislation(countryName);
+      }
+
+      function groupSimilarRegulations(legislation) {
+        const groupedRegulations = {};
+
+        legislation.forEach((item) => {
+          const key = item.interventionName;
+          if (!groupedRegulations[key]) {
+            groupedRegulations[key] = [];
+          }
+          groupedRegulations[key].push(item);
+        });
+        // Sort each group by date and find the most recent date
+        Object.values(groupedRegulations).forEach((group) => {
+          group.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate));
+          group.lastEventDate = group[0].eventDate;
+        });
+
+        return Object.values(groupedRegulations);
+      }
+
+      function displayCountryLegislation(country) {
+        const legislation = worldwideLegislationData.filter(
+          (item) => item.country === country
+        );
+        const container = document.getElementById("worldwide-container");
+        container.innerHTML = "";
+
+        const countryHeading = document.createElement("h2");
+        countryHeading.textContent = `AI-related Regulations for ${country}:`;
+        container.appendChild(countryHeading);
+
+        if (legislation.length === 0) {
+          container.innerHTML += `<p>No AI-related Regulations found for ${country}.</p>`;
           return;
         }
-        
-        // Check if running from file:// protocol
-        if (window.location.protocol === 'file:') {
-          const container = document.getElementById("worldwide-container");
-          container.innerHTML = `
-            <div class="error-message">
-              <strong>⚠️ Local File System Detected</strong><br><br>
-              This application needs to be served over HTTP to load external data.<br><br>
-              <strong>Quick Solutions:</strong><br>
-              1. <strong>Python:</strong> Run <code>python -m http.server 8000</code> in this folder, then visit <code>http://localhost:8000</code><br>
-              2. <strong>Node.js:</strong> Install <code>npx http-server</code> and run it in this folder<br>
-              3. <strong>VS Code:</strong> Install "Live Server" extension and click "Go Live"<br>
-              4. <strong>Add API Key:</strong> Set <code>DPA_API_KEY</code> variable at line ~273 (see comments)<br><br>
-              <em>Reason: CORS proxies require HTTP/HTTPS protocol, not file://</em>
-            </div>
-          `;
-          isLoadingWorldwideData = false;
-          return;
+
+        const groupedLegislation = groupSimilarRegulations(legislation);
+
+        const resultCount = document.createElement("p");
+        resultCount.textContent = `Found ${groupedLegislation.length} unique regulations for ${country}`;
+        container.appendChild(resultCount);
+
+        groupedLegislation.forEach((group) => {
+          const element = document.createElement("div");
+          element.classList.add("country-legislation");
+
+          const mainItem = group[0];
+          const allDescriptions = [
+            ...new Set(group.map((item) => item.eventDescription)),
+          ];
+          const combinedDescription = allDescriptions.join(" ");
+
+          // Format the last event date
+          const lastEventDate = new Date(
+            group.lastEventDate
+          ).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+
+          // Create timeline HTML only if there's more than one event
+          const timelineHTML =
+            group.length > 1 ? createTimelineHTML(group) : "";
+
+          element.innerHTML = `
+      <h5>${mainItem.interventionName}</h5>
+      <p><strong>Status:</strong> ${mainItem.interventionStatus}</p>
+      <p><strong>Last Event Date:</strong> ${lastEventDate}</p>
+      <p><strong>Description:</strong> ${combinedDescription.replace(/\n/g, '<br>')}</p>
+      ${timelineHTML}
+      <button style="
+        display: inline-block;
+        outline: 0;
+        border: none;
+        cursor: pointer;
+        height: 40px;
+        padding: 12px 17px;
+        border-radius: 50px;
+        background-color: #2222220d;
+        color: #222;
+        font-size: 16px;
+        font-weight: 500;
+        transition: background-color 0.3s ease;
+      "
+      onclick="window.open('${mainItem.SourceURL}', '_blank')"
+      onmouseover="this.style.backgroundColor='#2222221a'"
+      onmouseout="this.style.backgroundColor='#2222220d'"
+      >
+        Source 
+      </button>
+    `;
+          container.appendChild(element);
+        });
+      }
+      
+      function createTimelineHTML(group) {
+        if (group.length <= 1) {
+          return ""; // Don't create a timeline for a single event
         }
-        
-        // Check cache first unless forcing refresh
-        if (!forceRefresh && loadCachedData()) {
-          const container = document.getElementById("worldwide-container");
-          const uniqueCountries = [...new Set(worldwideLegislationData.map(d => d.country))].sort();
-          container.innerHTML = `
-            <div class="success-message">
-              <strong>Data loaded from cache!</strong><br>
-              ${worldwideLegislationData.length} AI-related regulations from ${uniqueCountries.length} countries/regions available.<br>
-              Click on a country on the map to view specific regulations.<br><br>
-              <button onclick="refreshWorldwideData()" style="
-                display: inline-block;
-                outline: 0;
-                border: none;
-                cursor: pointer;
-                height: 40px;
-                padding: 12px 17px;
-                border-radius: 50px;
-                background-color: #1fd1bf;
-                color: white;
-                font-size: 16px;
-                font-weight: 500;
-                transition: background-color 0.3s ease;
-              "
-              onmouseover="this.style.backgroundColor='#19b8a8'"
-              onmouseout="this.style.backgroundColor='#1fd1bf'">
-                Refresh Data
-              </button>
-            </div>
-          `;
-          return;
+
+        const timelineColor = "#cccccc";
+        const dotColor = "#1fd1bf";
+
+        // Sort events by date, oldest first
+        const sortedEvents = group.sort(
+          (a, b) => new Date(a.eventDate) - new Date(b.eventDate)
+        );
+
+        let timelineHTML = `
+    <div class="timeline" style="position: relative; padding: 30px 0; margin: 15px 0; height: auto; min-height: 120px; overflow: visible;">
+      <div class="timeline-line" style="
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: ${timelineColor};
+      "></div>
+  `;
+
+        // Create a map to group events by month
+        const eventsByMonth = new Map();
+        sortedEvents.forEach((event) => {
+          const date = new Date(event.eventDate);
+          const key = `${date.getFullYear()}-${date.getMonth()}`;
+          if (!eventsByMonth.has(key)) {
+            eventsByMonth.set(key, []);
+          }
+          eventsByMonth.get(key).push(event);
+        });
+
+        // Convert map to array and sort
+        const groupedEvents = Array.from(eventsByMonth.entries()).sort(
+          (a, b) => new Date(a[1][0].eventDate) - new Date(b[1][0].eventDate)
+        );
+
+        groupedEvents.forEach(([key, events], index) => {
+          const date = new Date(events[0].eventDate);
+          const position = (index / (groupedEvents.length - 1)) * 100;
+          const formattedDate = date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+          });
+          const isTop = index % 2 === 0;
+
+          const actionsHtml = events
+            .map((event) => `<span>${event.actionType}</span>`)
+            .join("<br>");
+
+          timelineHTML += `
+      <div class="timeline-item" style="
+        position: absolute;
+        left: ${position}%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+      ">
+        <div class="timeline-content" style="
+          position: absolute;
+          ${isTop ? "bottom: 100%;" : "top: 100%;"}
+          left: 50%;
+          transform: translateX(-50%);
+          margin: ${isTop ? "0 0 12px 0" : "12px 0 0 0"};
+          white-space: nowrap;
+        ">
+          <span style="font-weight: bold;">${formattedDate}</span>
+          <br>
+          <span style="font-size: 0.8em;">${actionsHtml}</span>
+        </div>
+        <div class="timeline-dot" style="
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background-color: ${dotColor};
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 1;
+        "></div>
+      </div>
+    `;
+        });
+
+        timelineHTML += "</div>";
+        return timelineHTML;
+      }
+      
+      // Worldwide legislation data and loading
+      const worldwideLegislationData = [];
+      let isLoadingWorldwideData = false;
+
+      async function loadWorldwideData() {
+        if (isLoadingWorldwideData || worldwideLegislationData.length > 0) {
+          return; // Prevent duplicate loading
         }
         
         isLoadingWorldwideData = true;
         const container = document.getElementById("worldwide-container");
-        container.innerHTML = '<div class="loading-progress">Loading AI regulations from Digital Policy Alerts...</div>';
+        container.innerHTML = "<p>Loading worldwide AI legislation data... <span id='load-status'>Connecting to API...</span></p>";
         
         try {
-          console.log("Starting data fetch from DPA...");
+          const apiKey = "198f8bd50e6f05610cd1088e4f3a4b387e375ce8";
+          const allData = [];
+          let offset = 0;
+          const limit = 100; // Reduced from 1000 for testing - adjust as needed
+          let hasMoreData = true;
+          let maxFetches = 10; // Limit to 10 fetches (1000 total entries max)
+          let fetchCount = 0;
           
-          const limit = 100;
-          const maxPages = 10;
-          let allData = [];
+          // Fetch first page to get total count
+          console.log("Fetching first page to determine total...");
+          const statusEl = document.getElementById('load-status');
+          if (statusEl) statusEl.textContent = "Fetching initial data...";
           
-          // Decide which method to use based on API key availability
-          if (DPA_API_KEY && DPA_API_KEY.trim() !== '') {
-            console.log("Using authenticated API with policy_area filter...");
-            allData = await fetchWithAuthentication(limit, maxPages, container);
-          } else {
-            console.log("Using public endpoint with CORS proxy...");
-            allData = await fetchWithCorsProxy(limit, maxPages, container);
+          const firstRequestBody = {
+            limit: limit,
+            offset: 0,
+            request_data: {
+              policy_area: [6]  // Filter for "Artificial intelligence" only
+            }
+          };
+          
+          const firstResponse = await fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `APIKey ${apiKey}`
+            },
+            body: JSON.stringify(firstRequestBody)
+          });
+          
+          if (!firstResponse.ok) {
+            const errorText = await firstResponse.text();
+            console.error("API Error Response:", errorText);
+            throw new Error(`HTTP error! status: ${firstResponse.status}`);
           }
           
-          if (allData.length === 0) {
-            container.innerHTML = `<div class="error-message">
-              <strong>No data available</strong><br>
-              The API returned no results.<br>
-              Please try again later.
-            </div>`;
-            return;
+          const firstData = await firstResponse.json();
+          const totalCount = firstData.count || 0;
+          console.log(`Total AI interventions available: ${totalCount}`);
+          
+          // Add first page results
+          if (firstData.results && Array.isArray(firstData.results)) {
+            allData.push(...firstData.results);
           }
           
-          // Log sample to see structure
-          console.log("Sample raw data:", allData[0]);
+          // Calculate remaining pages (up to maxFetches total)
+          const totalPages = Math.min(maxFetches, Math.ceil(totalCount / limit));
+          const remainingPages = totalPages - 1; // Already fetched page 1
           
-          // Filter for AI content
-          const aiRelatedData = filterAIContent(allData);
-          console.log(`AI-related entries: ${aiRelatedData.length} out of ${allData.length} total`);
+          if (statusEl) statusEl.textContent = `Loading ${totalPages} pages in parallel...`;
           
-          // Transform the data
-          const transformedData = transformDPAData(aiRelatedData);
+          // Fetch remaining pages in parallel for speed
+          if (remainingPages > 0) {
+            const fetchPromises = [];
+            
+            for (let page = 1; page <= remainingPages; page++) {
+              const pageOffset = page * limit;
+              const pageRequestBody = {
+                limit: limit,
+                offset: pageOffset,
+                request_data: {
+                  policy_area: [6]
+                }
+              };
+              
+              fetchPromises.push(
+                fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `APIKey ${apiKey}`
+                  },
+                  body: JSON.stringify(pageRequestBody)
+                })
+                .then(response => response.ok ? response.json() : null)
+                .then(data => {
+                  if (data && data.results) {
+                    console.log(`Page ${page + 1} fetched: ${data.results.length} entries`);
+                    return data.results;
+                  }
+                  return [];
+                })
+                .catch(error => {
+                  console.warn(`Error fetching page ${page + 1}:`, error);
+                  return [];
+                })
+              );
+            }
+            
+            // Wait for all parallel requests to complete
+            const results = await Promise.all(fetchPromises);
+            results.forEach(pageResults => {
+              if (pageResults.length > 0) {
+                allData.push(...pageResults);
+              }
+            });
+          }
           
-          console.log("Sample transformed data:", transformedData.slice(0, 2));
+          console.log(`Total entries fetched: ${allData.length}`);
           
-          const uniqueCountries = [...new Set(transformedData.map(d => d.country))].sort();
-          console.log(`Countries with data (${uniqueCountries.length}):`, uniqueCountries);
+          // Log a sample of the raw data to see its structure
+          if (allData.length > 0) {
+            console.log("Sample raw data items:", allData.slice(0, 3));
+          }
           
-          worldwideLegislationData = transformedData;
-          saveCacheData(transformedData);
+          // Since we filtered by policy_area:6 at the API level, all results are already AI-related
+          const aiRelatedData = allData;
           
-          const apiMethod = DPA_API_KEY ? 'Authenticated API with policy_area=6 filter' : 'Public endpoint with CORS proxy';
+          console.log(`AI-related entries: ${aiRelatedData.length}`);
+          console.log("Sample AI-related data:", aiRelatedData.slice(0, 3));
+          
+          // Transform the API response to match your data structure
+          const transformedData = aiRelatedData.map(item => {
+            // Extract country from implementers array
+            let country = 'Unknown';
+            if (item.implementers && item.implementers.length > 0) {
+              country = item.implementers[0].name;
+            }
+            
+            // Create a more detailed description if we have policy info
+            let fullDescription = item.description || 'No description available';
+            if (item.policy_area || item.policy_instrument) {
+              const policyInfo = [];
+              if (item.policy_area) policyInfo.push(`Policy Area: ${item.policy_area}`);
+              if (item.policy_instrument) policyInfo.push(`Policy Instrument: ${item.policy_instrument}`);
+              fullDescription = `${fullDescription}\n\n${policyInfo.join(' | ')}`;
+            }
+            
+            return {
+              country: country,
+              interventionName: item.title || 'Untitled Intervention',
+              interventionStatus: item.status || 'Unknown Status',
+              eventDate: item.date || 'Unknown Date',
+              eventDescription: fullDescription,
+              actionType: item.event_type || item.action_type || 'Unknown Action',
+              SourceURL: item.url || '#'
+            };
+          });
+          
+          console.log("Transformed data sample:", transformedData.slice(0, 3));
+          console.log("Countries found:", [...new Set(transformedData.map(d => d.country))].slice(0, 20));
+          
+          worldwideLegislationData.push(...transformedData);
           
           container.innerHTML = `
-            <div class="success-message">
-              <strong>✓ Data loaded successfully!</strong><br>
-              Loaded ${worldwideLegislationData.length} AI-related regulations from ${uniqueCountries.length} countries/regions.<br>
-              <strong>Method:</strong> ${apiMethod}<br>
-              <strong>Source links:</strong> Direct links to digitalpolicyalert.org/event/[ID]<br>
-              Data cached for 24 hours.<br><br>
-              Click on a country on the map to view specific regulations.<br><br>
-              <button onclick="refreshWorldwideData()" style="
-                display: inline-block;
-                outline: 0;
-                border: none;
-                cursor: pointer;
-                height: 40px;
-                padding: 12px 17px;
-                border-radius: 50px;
-                background-color: #1fd1bf;
-                color: white;
-                font-size: 16px;
-                font-weight: 500;
-                transition: background-color 0.3s ease;
-              "
-              onmouseover="this.style.backgroundColor='#19b8a8'"
-              onmouseout="this.style.backgroundColor='#1fd1bf'">
-                Refresh Data
-              </button>
-            </div>
+            <p>Loaded ${worldwideLegislationData.length} AI-related regulations from around the world.</p>
+            <p>Click on a country to view specific regulations.</p>
           `;
           
         } catch (error) {
           console.error("Error loading worldwide legislation data:", error);
-          
-          let errorHtml = `
-            <div class="error-message">
-              <strong>Error loading data:</strong><br>
-              ${error.message}<br><br>
-              Possible causes:<br>
-              - CORS restrictions on the API<br>
-              - Network connectivity issues<br>
-              - API service temporarily unavailable<br>
-              - Rate limits reached<br><br>
-          `;
-          
-          if (!DPA_API_KEY) {
-            errorHtml += `
-              <strong>💡 Solution: Add Your API Key</strong><br>
-              To use the more reliable authenticated API:<br>
-              1. Get your free API key from <a href="https://digitalpolicyalert.org/account/api-keys" target="_blank">digitalpolicyalert.org/account/api-keys</a><br>
-              2. In this file, find line ~273: <code>const DPA_API_KEY = '';</code><br>
-              3. Add your key: <code>const DPA_API_KEY = 'your-key-here';</code><br>
-              4. Refresh the page<br><br>
-              <em>Note: Using public endpoint with CORS proxy (less reliable)</em><br><br>
-            `;
-          } else {
-            errorHtml += `<strong>Note:</strong> Using authenticated API. Check if API key is valid.<br><br>`;
-          }
-          
-          errorHtml += `Please try again later or check the browser console for more details.</div>`;
-          container.innerHTML = errorHtml;
+          // Silently fail - don't show anything to the user
+          container.innerHTML = "";
         } finally {
           isLoadingWorldwideData = false;
         }
-      }
-      
-      // Fetch using authenticated API (requires API key)
-      async function fetchWithAuthentication(limit, maxPages, container) {
-        const apiUrl = "https://api.globaltradealert.org/api/v1/dpa/events/";
-        
-        const requestBody = {
-          limit: limit,
-          offset: 0,
-          request_data: {
-            policy_area: [6]  // 6 = Artificial Intelligence
-          }
-        };
-        
-        const headers = {
-          'Content-Type': 'application/json',
-          'Authorization': `APIKey ${DPA_API_KEY}`
-        };
-        
-        // First request
-        const firstResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify(requestBody)
-        });
-        
-        if (!firstResponse.ok) {
-          throw new Error(`Authenticated API request failed with status ${firstResponse.status}. Check if API key is valid.`);
-        }
-        
-        const firstData = await firstResponse.json();
-        const totalCount = firstData.count || 0;
-        const results = firstData.results || [];
-        
-        console.log(`Total AI interventions available: ${totalCount}`);
-        console.log(`First page returned ${results.length} entries`);
-        
-        const totalPages = Math.min(maxPages, Math.ceil(totalCount / limit));
-        const pagesToFetch = totalPages - 1;
-        
-        container.innerHTML = `<div class="loading-progress">
-          <strong>Loading AI regulations...</strong><br>
-          Loaded page 1 of ${totalPages} (${results.length} entries so far)<br>
-          Using authenticated API with policy_area=6 filter
-        </div>`;
-        
-        // Fetch remaining pages in parallel
-        const fetchPromises = [];
-        for (let page = 1; page <= pagesToFetch; page++) {
-          const pageRequestBody = {
-            limit: limit,
-            offset: page * limit,
-            request_data: { policy_area: [6] }
-          };
-          
-          fetchPromises.push(
-            fetch(apiUrl, {
-              method: 'POST',
-              headers: headers,
-              body: JSON.stringify(pageRequestBody)
-            })
-              .then(response => response.ok ? response.json() : [])
-              .then(data => {
-                const pageResults = data.results || [];
-                console.log(`Page ${page + 1} fetched: ${pageResults.length} entries`);
-                return pageResults;
-              })
-              .catch(() => [])
-          );
-        }
-        
-        const additionalResults = await Promise.all(fetchPromises);
-        return [results, ...additionalResults].flat();
-      }
-      
-      // Fetch using public endpoint with CORS proxy (requires HTTP server)
-      async function fetchWithCorsProxy(limit, maxPages, container) {
-        // Try multiple CORS proxies in order of preference
-        const corsProxies = [
-          'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest=',
-          'https://api.allorigins.win/raw?url='
-        ];
-        
-        const baseUrl = 'https://unctad.org/dpa-api/interventions';
-        let lastError = null;
-        
-        // Try each proxy until one works
-        for (const corsProxy of corsProxies) {
-          try {
-            console.log(`Trying CORS proxy: ${corsProxy.split('?')[0]}...`);
-            
-            const firstPageUrl = `${corsProxy}${encodeURIComponent(`${baseUrl}?limit=${limit}&offset=0`)}`;
-            const firstResponse = await fetch(firstPageUrl);
-            
-            if (!firstResponse.ok) {
-              throw new Error(`Status ${firstResponse.status}`);
-            }
-            
-            const firstData = await firstResponse.json();
-            let results = [];
-            
-            if (Array.isArray(firstData)) {
-              results = firstData;
-            } else if (firstData && firstData.results && Array.isArray(firstData.results)) {
-              results = firstData.results;
-            } else if (firstData && firstData.data && Array.isArray(firstData.data)) {
-              results = firstData.data;
-            }
-            
-            console.log(`✓ Success with ${corsProxy.split('?')[0]} - First page returned ${results.length} results`);
-            
-            let pagesToFetch = Math.min(maxPages - 1, Math.ceil((1000 - limit) / limit));
-            
-            if (results.length < limit) {
-              pagesToFetch = 0;
-            }
-            
-            container.innerHTML = `<div class="loading-progress">
-              <strong>Loading regulations...</strong><br>
-              Loaded page 1 of up to ${pagesToFetch + 1} (${results.length} entries so far)<br>
-              Using CORS proxy for public access
-            </div>`;
-            
-            // Fetch remaining pages in parallel
-            const fetchPromises = [];
-            for (let page = 1; page <= pagesToFetch; page++) {
-              const offset = page * limit;
-              const pageUrl = `${corsProxy}${encodeURIComponent(`${baseUrl}?limit=${limit}&offset=${offset}`)}`;
-              
-              fetchPromises.push(
-                fetch(pageUrl)
-                  .then(response => response.ok ? response.json() : [])
-                  .then(data => {
-                    let pageResults = [];
-                    if (Array.isArray(data)) {
-                      pageResults = data;
-                    } else if (data && data.results && Array.isArray(data.results)) {
-                      pageResults = data.results;
-                    } else if (data && data.data && Array.isArray(data.data)) {
-                      pageResults = data.data;
-                    }
-                    console.log(`Page ${page + 1} fetched: ${pageResults.length} entries`);
-                    return pageResults;
-                  })
-                  .catch(() => [])
-              );
-            }
-            
-            const additionalResults = await Promise.all(fetchPromises);
-            return [results, ...additionalResults].flat();
-            
-          } catch (error) {
-            console.warn(`Failed with ${corsProxy.split('?')[0]}: ${error.message}`);
-            lastError = error;
-            continue; // Try next proxy
-          }
-        }
-        
-        // All proxies failed
-        throw new Error(`All CORS proxies failed. Last error: ${lastError?.message}. Try adding an API key or serving via HTTP server.`);
-      }
-      
-      // Filter data for AI-related content
-      function filterAIContent(allData) {
-        const aiTerms = [
-          'artificial intelligence',
-          'machine learning',
-          'ai ',
-          ' ai',
-          'neural network',
-          'deep learning',
-          'generative ai',
-          'algorithmic',
-          'automation',
-          'ai-powered',
-          'ai system',
-          'ai model',
-          'ai act',
-          'ai regulation',
-          'algorithm',
-          'automated decision'
-        ];
-        
-        return allData.filter(item => {
-          // Check policy_area field (API docs: code 6 = "Artificial intelligence")
-          const policyArea = item.policy_area || '';
-          if (policyArea && typeof policyArea === 'string') {
-            if (policyArea.toLowerCase().includes('artificial intelligence')) {
-              return true;
-            }
-          }
-          
-          // Check policy_area_id
-          if (item.policy_area_id === 6) {
-            return true;
-          }
-          
-          // Keyword search fallback
-          const searchText = (
-            (item.title || item.intervention_title || item.name || '') + ' ' +
-            (item.description || item.intervention_description || '')
-          ).toLowerCase();
-          
-          return aiTerms.some(term => searchText.includes(term));
-        });
-      }
-      
-      // Transform DPA API data to consistent format
-      function transformDPAData(data) {
-        return data.map(item => {
-          // Extract country from implementers (API format from docs)
-          let country = 'Unknown';
-          if (item.implementers && item.implementers.length > 0) {
-            country = item.implementers[0].name || item.implementers[0] || 'Unknown';
-          } else if (item.implementing_country) {
-            country = item.implementing_country;
-          } else if (item.implementer_groups && item.implementer_groups.length > 0) {
-            country = item.implementer_groups[0].name || item.implementer_groups[0];
-          }
-          
-          const title = item.title || 'Untitled Event';
-          const description = item.description || 'No description available';
-          const eventDate = item.date || 'Unknown Date';
-          const status = item.status || 'Unknown Status';
-          const actionType = item.action_type || item.event_type || 'Policy Update';
-          const policyArea = item.policy_area || '';
-          const policyInstrument = item.policy_instrument || '';
-          
-          // URL from API docs: url field contains direct link
-          let sourceUrl = item.url || '#';
-          
-          // Fallback: construct from ID
-          if (sourceUrl === '#' && item.id) {
-            sourceUrl = `https://digitalpolicyalert.org/event/${item.id}`;
-          }
-          
-          return {
-            country: country,
-            interventionName: title,
-            interventionStatus: status,
-            eventDate: eventDate,
-            eventDescription: description,
-            actionType: actionType,
-            policyArea: policyArea,
-            policyInstrument: policyInstrument,
-            SourceURL: sourceUrl,
-            eventId: item.id || 'unknown'
-          };
-        });
       }
 
       // Navigation menu functionality
@@ -1158,49 +989,14 @@
           document.getElementById("worldwide-footer").style.display = "block";
           this.classList.add("active");
           document.getElementById("us-link").classList.remove("active");
-          if (worldwideLegislationData.length === 0 && !isLoadingWorldwideData) {
+          if (worldwideLegislationData.length === 0) {
             loadWorldwideData();
-          } else if (worldwideLegislationData.length > 0) {
-            const container = document.getElementById("worldwide-container");
-            if (container.innerHTML === "") {
-              const uniqueCountries = [...new Set(worldwideLegislationData.map(d => d.country))].sort();
-              container.innerHTML = `
-                <div class="success-message">
-                  <strong>Data loaded from cache!</strong><br>
-                  ${worldwideLegislationData.length} AI-related regulations from ${uniqueCountries.length} countries/regions available.<br>
-                  Click on a country on the map to view specific regulations.<br><br>
-                  <button onclick="refreshWorldwideData()" style="
-                    display: inline-block;
-                    outline: 0;
-                    border: none;
-                    cursor: pointer;
-                    height: 40px;
-                    padding: 12px 17px;
-                    border-radius: 50px;
-                    background-color: #1fd1bf;
-                    color: white;
-                    font-size: 16px;
-                    font-weight: 500;
-                    transition: background-color 0.3s ease;
-                  "
-                  onmouseover="this.style.backgroundColor='#19b8a8'"
-                  onmouseout="this.style.backgroundColor='#1fd1bf'">
-                    Refresh Data
-                  </button>
-                </div>
-              `;
-            }
           }
         });
-      
-      // Load cached data on page load
-      loadCachedData();
-      
-      // Global function to refresh worldwide data
-      window.refreshWorldwideData = function() {
-        console.log("Manually refreshing worldwide data...");
-        loadWorldwideData(true);
-      };
+
+      // Initial load - preload worldwide data
+      // You can comment this out if you only want to load when user clicks Global tab
+      // loadWorldwideData();
     </script>
   </body>
 </html>
