@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Global AI Regulation Hub</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+      header {
+        background-color: #333;
+        color: #fff;
+        padding: 1em;
+        text-align: center;
+      }
+      main {
+        padding: 2em;
+      }
+      #map,
+      #world-map {
+        display: flex;
+        justify-content: center;
+      }
+      #regulations {
+        margin-top: 20px;
+      }
+      #loading {
+        text-align: center;
+        margin-top: 20px;
+        display: none;
+      }
+      #regulations-container {
+        margin-top: 20px;
+      }
+      .regulation {
+        margin-bottom: 20px;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+      }
+      .regulation h5 {
+        margin-top: 5px;
+      }
+      .regulation p {
+        margin-bottom: 20px;
+      }
+      .state {
+        fill: #ccc;
+        stroke: #fff;
+        stroke-width: 0.5px;
+      }
+      .state:hover {
+        fill: #999;
+      }
+      .state.active {
+        fill: #1fd1bf;
+      }
+      #state-name {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        font-size: 24px;
+        font-weight: bold;
+      }
+      .nav-menu {
+        background-color: #333;
+        overflow: hidden;
+      }
+      .nav-menu a {
+        float: left;
+        color: #f2f2f2;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+        font-size: 17px;
+      }
+      .nav-menu a:hover {
+        background-color: #ddd;
+        color: black;
+      }
+      .nav-menu a.active {
+        background-color: #1fd1bf;
+        color: white;
+      }
+      #worldwide {
+        display: none;
+      }
+      #worldwide-container {
+        margin-top: 20px;
+      }
+      .country-legislation {
+        margin-bottom: 20px;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+      }
+      .country-legislation h5 {
+        margin-top: 5px;
+      }
+      .country-legislation p {
+        margin-bottom: 20px;
+      }
+      .country {
+        fill: #ccc;
+        stroke: #fff;
+        stroke-width: 0.5px;
+      }
+      .country:hover {
+        fill: #999;
+      }
+      .country.active {
+        fill: #1fd1bf;
+      }
+      .regulation,
+      .country-legislation {
+        margin-bottom: 30px;
+        padding: 20px;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        transition: box-shadow 0.3s ease-in-out;
+      }
+
+      .timeline {
+        position: relative;
+        padding: 60px 0;
+        margin: 30px 0;
+        height: auto;
+        min-height: 200px;
+        overflow: visible;
+      }
+
+      .regulation:hover,
+      .country-legislation:hover {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      #regulations-container,
+      #worldwide-container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .regulation h5,
+      .country-legislation h5 {
+        font-size: 1.2em;
+        font-weight: bold;
+        font-family: Arial, sans-serif;
+        color: #1fd1bf;
+        margin-bottom: 20px;
+      }
+      .timeline {
+        position: relative;
+        padding: 20px 0;
+        margin: 30px 0;
+        overflow: hidden;
+      }
+      footer {
+        background-color: #f4f4f4;
+        padding: 10px;
+        text-align: center;
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 20px;
+      }
+    </style>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Global Artificial Intelligence Regulation Hub</h1>
+    </header>
+    <div class="nav-menu">
+      <a href="#" id="us-link" class="active">United States</a>
+      <a href="#" id="worldwide-link">Global</a>
+    </div>
+    <main>
+      <div id="us">
+        <h2>US Artificial Intelligence Regulations</h2>
+        <div id="map"></div>
+        <div id="state-name"></div>
+        <div id="loading">Loading legislation...</div>
+        <div id="regulations">
+          <div id="regulations-container"></div>
+        </div>
+      </div>
+      <div id="worldwide">
+        <h2>Global Artificial Intelligence Regulations</h2>
+        <div id="world-map"></div>
+        <div id="worldwide-container"></div>
+      </div>
+      <footer id="us-footer">
+        <p>Source: Legiscan</p>
+      </footer>
+      <footer id="worldwide-footer" style="display: none">
+        <p>Source: Digital Policy Alerts</p>
+      </footer>
+    </main>
+    <script>
+      const stateNameToAbbreviation = {
+        Alabama: "AL",
+        Alaska: "AK",
+        Arizona: "AZ",
+        Arkansas: "AR",
+        California: "CA",
+        Colorado: "CO",
+        Connecticut: "CT",
+        Delaware: "DE",
+        Florida: "FL",
+        Georgia: "GA",
+        Hawaii: "HI",
+        Idaho: "ID",
+        Illinois: "IL",
+        Indiana: "IN",
+        Iowa: "IA",
+        Kansas: "KS",
+        Kentucky: "KY",
+        Louisiana: "LA",
+        Maine: "ME",
+        Maryland: "MD",
+        Massachusetts: "MA",
+        Michigan: "MI",
+        Minnesota: "MN",
+        Mississippi: "MS",
+        Missouri: "MO",
+        Montana: "MT",
+        Nebraska: "NE",
+        Nevada: "NV",
+        "New Hampshire": "NH",
+        "New Jersey": "NJ",
+        "New Mexico": "NM",
+        "New York": "NY",
+        "North Carolina": "NC",
+        "North Dakota": "ND",
+        Ohio: "OH",
+        Oklahoma: "OK",
+        Oregon: "OR",
+        Pennsylvania: "PA",
+        "Rhode Island": "RI",
+        "South Carolina": "SC",
+        "South Dakota": "SD",
+        Tennessee: "TN",
+        Texas: "TX",
+        Utah: "UT",
+        Vermont: "VT",
+        Virginia: "VA",
+        Washington: "WA",
+        "West Virginia": "WV",
+        Wisconsin: "WI",
+        Wyoming: "WY",
+      };
+
+      const width = 960;
+      const height = 600;
+
+      const svg = d3
+        .select("#map")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+      const projection = d3
+        .geoAlbersUsa()
+        .scale(1000)
+        .translate([width / 2, height / 2]);
+
+      const path = d3.geoPath().projection(projection);
+
+      const searchTerms = [
+        '"artificial intelligence"',
+        '"machine learning"',
+        '"deep learning"',
+        '"neural network"',
+        '"generative AI"',
+        '"autonomous system"',
+        '"algorithmic decision"',
+        '"AI ethics"',
+        '"AI regulation"',
+        '"AI policy"',
+        '"automated decision"',
+        '"AI governance"',
+      ];
+
+      // Cache for state legislation data
+      const stateDataCache = {};
+
+      const isRelevant = (bill) => {
+        const text = (
+          bill.title +
+          " " +
+          (bill.description || "")
+        ).toLowerCase();
+        return searchTerms.some((term) =>
+          text.includes(term.toLowerCase().replace(/"/g, ""))
+        );
+      };
+
+      const calculateRelevanceScore = (bill) => {
+        const text = (
+          bill.title +
+          " " +
+          (bill.description || "")
+        ).toLowerCase();
+        return searchTerms.reduce((score, term) => {
+          const count = (
+            text.match(new RegExp(term.toLowerCase().replace(/"/g, ""), "g")) ||
+            []
+          ).length;
+          return score + count;
+        }, 0);
+      };
+
+      const fetchLegislation = async (state) => {
+        // Check cache first
+        if (stateDataCache[state]) {
+          console.log(`Using cached data for ${state}`);
+          displayLegislation(state, stateDataCache[state]);
+          document.getElementById("loading").style.display = "none";
+          return;
+        }
+        
+        try {
+          const apiKey = "57cf1119f6c9ebcb5d542458c87d85e7";
+          const stateAbbr = stateNameToAbbreviation[state];
+
+          console.log(`Fetching legislation for ${state} (${stateAbbr})`);
+
+          // First, get the current session for the state
+          const sessionUrl = `https://api.legiscan.com/?key=${apiKey}&op=getSessionList&state=${stateAbbr}`;
+          const sessionResponse = await fetch(sessionUrl);
+          const sessionData = await sessionResponse.json();
+
+          console.log("Session data:", sessionData);
+
+          if (
+            sessionData.status !== "OK" ||
+            !sessionData.sessions ||
+            sessionData.sessions.length === 0
+          ) {
+            throw new Error("Failed to retrieve session information");
+          }
+
+          // Sort by session_id descending to get the most recent session
+          const currentSession = sessionData.sessions.sort((a, b) => b.session_id - a.session_id)[0];
+
+          console.log("Current session:", currentSession);
+
+          // Now, perform the search using the session ID (without year restriction)
+          const query = encodeURIComponent(searchTerms.join(" OR "));
+          const searchUrl = `https://api.legiscan.com/?key=${apiKey}&op=getSearch&state=${stateAbbr}&query=${query}&session=${currentSession.session_id}`;
+
+          const searchResponse = await fetch(searchUrl);
+          const searchData = await searchResponse.json();
+
+          console.log("Search data:", searchData);
+
+          if (searchData.status === "OK" && searchData.searchresult) {
+            // Extract bill IDs from search results
+            const billEntries = Object.entries(searchData.searchresult)
+              .filter(([key, value]) => key !== "summary" && typeof value === "object");
+            
+            console.log(`Found ${billEntries.length} bills, fetching details in parallel...`);
+            
+            // Fetch all bills in parallel for much faster loading
+            const billPromises = billEntries.map(async ([key, value]) => {
+              try {
+                const billUrl = `https://api.legiscan.com/?key=${apiKey}&op=getBill&id=${value.bill_id}`;
+                const billResponse = await fetch(billUrl);
+                const billData = await billResponse.json();
+                if (billData.status === "OK") {
+                  return { key, bill: billData.bill };
+                }
+                return null;
+              } catch (error) {
+                console.error(`Error fetching bill ${value.bill_id}:`, error);
+                return null;
+              }
+            });
+            
+            // Wait for all bills to be fetched
+            const billResults = await Promise.all(billPromises);
+            
+            // Convert to bills object
+            const bills = {};
+            billResults.forEach(result => {
+              if (result) {
+                bills[result.key] = result.bill;
+              }
+            });
+            
+            console.log("Bills data:", bills);
+
+            const relevantBills = Object.values(bills)
+              .filter(isRelevant)
+              .sort((a, b) => {
+                const dateA = new Date(
+                  a.last_action_date || a.status_date || "1970-01-01"
+                );
+                const dateB = new Date(
+                  b.last_action_date || b.status_date || "1970-01-01"
+                );
+                return dateB - dateA; // Sort descending (most recent first)
+              });
+
+            console.log(
+              "Sorted bills:",
+              relevantBills.map((b) => ({
+                bill: b.bill_number,
+                date: b.last_action_date || b.status_date,
+              }))
+            );
+
+            // Cache the results
+            stateDataCache[state] = relevantBills;
+            
+            displayLegislation(state, relevantBills);
+          } else {
+            console.log("No search results found");
+            displayNoLegislation(state);
+          }
+        } catch (error) {
+          console.error(`Error fetching data for ${state}:`, error);
+          displayNoLegislation(state);
+        }
+
+        document.getElementById("loading").style.display = "none";
+      };
+      const stateNameElement = document.getElementById("state-name");
+
+      const highlightState = (state) => {
+        svg.selectAll(".state").classed("active", false);
+        svg.select(`path[data-state="${state}"]`).classed("active", true);
+        stateNameElement.textContent = state;
+      };
+      d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json").then(
+        (data) => {
+          const states = topojson.feature(data, data.objects.states);
+          svg
+            .selectAll(".state")
+            .data(states.features)
+            .enter()
+            .append("path")
+            .attr("class", "state")
+            .attr("data-state", (d) => d.properties.name)
+            .attr("d", path)
+            .on("click", function (event, d) {
+              const state = d.properties.name;
+              document.getElementById("loading").style.display = "block";
+              fetchLegislation(state);
+              highlightState(state);
+            });
+        }
+      );
+
+      const displayLegislation = (state, bills) => {
+        console.log(`Displaying legislation for ${state}:`, bills);
+
+        const legislationContainer = document.getElementById(
+          "regulations-container"
+        );
+        legislationContainer.innerHTML = "";
+
+        const stateHeading = document.createElement("h2");
+        stateHeading.textContent = `AI-related Legislation for ${state}:`;
+        legislationContainer.appendChild(stateHeading);
+
+        let billCount = 0;
+
+        const statusMap = {
+          1: "Introduced",
+          2: "Engrossed",
+          3: "Enrolled",
+          4: "Passed",
+          5: "Vetoed",
+          6: "Failed",
+        };
+
+        bills.forEach((bill) => {
+          console.log("Full bill object:", bill);
+          billCount++;
+          const billElement = document.createElement("div");
+          billElement.classList.add("regulation");
+
+          const title = bill.title || "Untitled Bill";
+          const billNumber = bill.bill_number || "Unknown Bill Number";
+          const stateLink = bill.state_link || "";
+          const status = statusMap[bill.status] || "Unknown Status";
+
+          // Use last_action_date or status_date
+          let lastActionDate =
+            bill.last_action_date || bill.status_date || "Unknown Date";
+
+          // Format the date
+          if (lastActionDate !== "Unknown Date") {
+            const dateObj = new Date(lastActionDate);
+            lastActionDate = dateObj.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            });
+          }
+
+          const sponsors = bill.sponsors
+            ? bill.sponsors.map((s) => s.name).join(", ")
+            : "No sponsors listed";
+          const description = bill.description || "No description available";
+
+          const shortDescription =
+            description.length > 300
+              ? description.substring(0, 300) + "..."
+              : description;
+
+          billElement.innerHTML = `
+      <h5>${billNumber}: ${title}</h5>
+      <p><strong>Status:</strong> ${status}</p>
+      <p><strong>Last Action Date:</strong> ${lastActionDate}</p>
+      <p><strong>Description:</strong> ${shortDescription}</p>
+      <button style="
+        display: inline-block;
+        outline: 0;
+        border: none;
+        cursor: pointer;
+        height: 40px;
+        padding: 12px 17px;
+        border-radius: 50px;
+        background-color: #2222220d;
+        color: #222
+        font-size: 16px;
+        font-weight: 500;
+        transition: background-color 0.3s ease;
+      "
+      onclick="window.open('${stateLink}', '_blank')"
+      onmouseover="this.style.backgroundColor='#2222221a'"
+      onmouseout="this.style.backgroundColor='#2222220d'"
+      >
+        Source
+      </button>
+    `;
+
+          legislationContainer.appendChild(billElement);
+        });
+
+        const resultCount = document.createElement("p");
+        resultCount.textContent = `Found ${billCount} results for ${state}`;
+        legislationContainer.insertBefore(
+          resultCount,
+          legislationContainer.firstChild.nextSibling
+        );
+
+        if (billCount === 0) {
+          displayNoLegislation(state);
+        }
+      };
+
+      const displayNoLegislation = (state) => {
+        const legislationContainer = document.getElementById(
+          "regulations-container"
+        );
+        legislationContainer.innerHTML = `<p>No AI-related regulations found for ${state}.</p>`;
+      };
+
+      // World map
+      const worldWidth = 960;
+      const worldHeight = 500;
+
+      const worldSvg = d3
+        .select("#world-map")
+        .append("svg")
+        .attr("width", worldWidth)
+        .attr("height", worldHeight);
+
+      const worldProjection = d3
+        .geoNaturalEarth1()
+        .scale(worldWidth / 2 / Math.PI)
+        .translate([worldWidth / 2, worldHeight / 2]);
+
+      const worldPath = d3.geoPath().projection(worldProjection);
+
+      // Load world map data
+      d3.json(
+        "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
+      ).then(function (world) {
+        worldSvg
+          .append("g")
+          .selectAll("path")
+          .data(topojson.feature(world, world.objects.countries).features)
+          .enter()
+          .append("path")
+          .attr("d", worldPath)
+          .attr("class", "country")
+          .on("click", function (event, d) {
+            const countryName = d.properties.name;
+            highlightCountry(this, countryName);
+          });
+      });
+
+      function highlightCountry(country, countryName) {
+        worldSvg.selectAll(".country").classed("active", false);
+        d3.select(country).classed("active", true);
+        document.getElementById("worldwide-container").innerHTML = ""; // Clear previous content
+        displayCountryLegislation(countryName);
+      }
+
+      function groupSimilarRegulations(legislation) {
+        const groupedRegulations = {};
+
+        legislation.forEach((item) => {
+          const key = item.interventionName;
+          if (!groupedRegulations[key]) {
+            groupedRegulations[key] = [];
+          }
+          groupedRegulations[key].push(item);
+        });
+        // Sort each group by date and find the most recent date
+        Object.values(groupedRegulations).forEach((group) => {
+          group.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate));
+          group.lastEventDate = group[0].eventDate;
+        });
+
+        return Object.values(groupedRegulations);
+      }
+
+      function displayCountryLegislation(country) {
+        const legislation = worldwideLegislationData.filter(
+          (item) => item.country === country
+        );
+        const container = document.getElementById("worldwide-container");
+        container.innerHTML = "";
+
+        const countryHeading = document.createElement("h2");
+        countryHeading.textContent = `AI-related Regulations for ${country}:`;
+        container.appendChild(countryHeading);
+
+        if (legislation.length === 0) {
+          container.innerHTML += `<p>No AI-related Regulations found for ${country}.</p>`;
+          return;
+        }
+
+        const groupedLegislation = groupSimilarRegulations(legislation);
+
+        const resultCount = document.createElement("p");
+        resultCount.textContent = `Found ${groupedLegislation.length} unique regulations for ${country}`;
+        container.appendChild(resultCount);
+
+        groupedLegislation.forEach((group) => {
+          const element = document.createElement("div");
+          element.classList.add("country-legislation");
+
+          const mainItem = group[0];
+          const allDescriptions = [
+            ...new Set(group.map((item) => item.eventDescription)),
+          ];
+          const combinedDescription = allDescriptions.join(" ");
+
+          // Format the last event date
+          const lastEventDate = new Date(
+            group.lastEventDate
+          ).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+
+          // Create timeline HTML only if there's more than one event
+          const timelineHTML =
+            group.length > 1 ? createTimelineHTML(group) : "";
+
+          element.innerHTML = `
+      <h5>${mainItem.interventionName}</h5>
+      <p><strong>Status:</strong> ${mainItem.interventionStatus}</p>
+      <p><strong>Last Event Date:</strong> ${lastEventDate}</p>
+      <p><strong>Description:</strong> ${combinedDescription.replace(/\n/g, '<br>')}</p>
+      ${timelineHTML}
+      <button style="
+        display: inline-block;
+        outline: 0;
+        border: none;
+        cursor: pointer;
+        height: 40px;
+        padding: 12px 17px;
+        border-radius: 50px;
+        background-color: #2222220d;
+        color: #222;
+        font-size: 16px;
+        font-weight: 500;
+        transition: background-color 0.3s ease;
+      "
+      onclick="window.open('${mainItem.SourceURL}', '_blank')"
+      onmouseover="this.style.backgroundColor='#2222221a'"
+      onmouseout="this.style.backgroundColor='#2222220d'"
+      >
+        Source 
+      </button>
+    `;
+          container.appendChild(element);
+        });
+      }
+      
+      function createTimelineHTML(group) {
+        if (group.length <= 1) {
+          return ""; // Don't create a timeline for a single event
+        }
+
+        const timelineColor = "#cccccc";
+        const dotColor = "#1fd1bf";
+
+        // Sort events by date, oldest first
+        const sortedEvents = group.sort(
+          (a, b) => new Date(a.eventDate) - new Date(b.eventDate)
+        );
+
+        let timelineHTML = `
+    <div class="timeline" style="position: relative; padding: 30px 0; margin: 15px 0; height: auto; min-height: 120px; overflow: visible;">
+      <div class="timeline-line" style="
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: ${timelineColor};
+      "></div>
+  `;
+
+        // Create a map to group events by month
+        const eventsByMonth = new Map();
+        sortedEvents.forEach((event) => {
+          const date = new Date(event.eventDate);
+          const key = `${date.getFullYear()}-${date.getMonth()}`;
+          if (!eventsByMonth.has(key)) {
+            eventsByMonth.set(key, []);
+          }
+          eventsByMonth.get(key).push(event);
+        });
+
+        // Convert map to array and sort
+        const groupedEvents = Array.from(eventsByMonth.entries()).sort(
+          (a, b) => new Date(a[1][0].eventDate) - new Date(b[1][0].eventDate)
+        );
+
+        groupedEvents.forEach(([key, events], index) => {
+          const date = new Date(events[0].eventDate);
+          const position = (index / (groupedEvents.length - 1)) * 100;
+          const formattedDate = date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+          });
+          const isTop = index % 2 === 0;
+
+          const actionsHtml = events
+            .map((event) => `<span>${event.actionType}</span>`)
+            .join("<br>");
+
+          timelineHTML += `
+      <div class="timeline-item" style="
+        position: absolute;
+        left: ${position}%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+      ">
+        <div class="timeline-content" style="
+          position: absolute;
+          ${isTop ? "bottom: 100%;" : "top: 100%;"}
+          left: 50%;
+          transform: translateX(-50%);
+          margin: ${isTop ? "0 0 12px 0" : "12px 0 0 0"};
+          white-space: nowrap;
+        ">
+          <span style="font-weight: bold;">${formattedDate}</span>
+          <br>
+          <span style="font-size: 0.8em;">${actionsHtml}</span>
+        </div>
+        <div class="timeline-dot" style="
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background-color: ${dotColor};
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 1;
+        "></div>
+      </div>
+    `;
+        });
+
+        timelineHTML += "</div>";
+        return timelineHTML;
+      }
+      
+      // Worldwide legislation data and loading
+      const worldwideLegislationData = [];
+      let isLoadingWorldwideData = false;
+
+      async function loadWorldwideData() {
+        if (isLoadingWorldwideData || worldwideLegislationData.length > 0) {
+          return; // Prevent duplicate loading
+        }
+        
+        isLoadingWorldwideData = true;
+        const container = document.getElementById("worldwide-container");
+        container.innerHTML = "<p>Loading worldwide AI legislation data... <span id='load-status'>Connecting to API...</span></p>";
+        
+        try {
+          const apiKey = "198f8bd50e6f05610cd1088e4f3a4b387e375ce8";
+          const allData = [];
+          let offset = 0;
+          const limit = 100; // Reduced from 1000 for testing - adjust as needed
+          let hasMoreData = true;
+          let maxFetches = 10; // Limit to 10 fetches (1000 total entries max)
+          let fetchCount = 0;
+          
+          // Fetch first page to get total count
+          console.log("Fetching first page to determine total...");
+          const statusEl = document.getElementById('load-status');
+          if (statusEl) statusEl.textContent = "Fetching initial data...";
+          
+          const firstRequestBody = {
+            limit: limit,
+            offset: 0,
+            request_data: {
+              policy_area: [6]  // Filter for "Artificial intelligence" only
+            }
+          };
+          
+          const firstResponse = await fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `APIKey ${apiKey}`
+            },
+            body: JSON.stringify(firstRequestBody)
+          });
+          
+          if (!firstResponse.ok) {
+            const errorText = await firstResponse.text();
+            console.error("API Error Response:", errorText);
+            throw new Error(`HTTP error! status: ${firstResponse.status}`);
+          }
+          
+          const firstData = await firstResponse.json();
+          const totalCount = firstData.count || 0;
+          console.log(`Total AI interventions available: ${totalCount}`);
+          
+          // Add first page results
+          if (firstData.results && Array.isArray(firstData.results)) {
+            allData.push(...firstData.results);
+          }
+          
+          // Calculate remaining pages (up to maxFetches total)
+          const totalPages = Math.min(maxFetches, Math.ceil(totalCount / limit));
+          const remainingPages = totalPages - 1; // Already fetched page 1
+          
+          if (statusEl) statusEl.textContent = `Loading ${totalPages} pages in parallel...`;
+          
+          // Fetch remaining pages in parallel for speed
+          if (remainingPages > 0) {
+            const fetchPromises = [];
+            
+            for (let page = 1; page <= remainingPages; page++) {
+              const pageOffset = page * limit;
+              const pageRequestBody = {
+                limit: limit,
+                offset: pageOffset,
+                request_data: {
+                  policy_area: [6]
+                }
+              };
+              
+              fetchPromises.push(
+                fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `APIKey ${apiKey}`
+                  },
+                  body: JSON.stringify(pageRequestBody)
+                })
+                .then(response => response.ok ? response.json() : null)
+                .then(data => {
+                  if (data && data.results) {
+                    console.log(`Page ${page + 1} fetched: ${data.results.length} entries`);
+                    return data.results;
+                  }
+                  return [];
+                })
+                .catch(error => {
+                  console.warn(`Error fetching page ${page + 1}:`, error);
+                  return [];
+                })
+              );
+            }
+            
+            // Wait for all parallel requests to complete
+            const results = await Promise.all(fetchPromises);
+            results.forEach(pageResults => {
+              if (pageResults.length > 0) {
+                allData.push(...pageResults);
+              }
+            });
+          }
+          
+          console.log(`Total entries fetched: ${allData.length}`);
+          
+          // Log a sample of the raw data to see its structure
+          if (allData.length > 0) {
+            console.log("Sample raw data items:", allData.slice(0, 3));
+          }
+          
+          // Since we filtered by policy_area:6 at the API level, all results are already AI-related
+          const aiRelatedData = allData;
+          
+          console.log(`AI-related entries: ${aiRelatedData.length}`);
+          console.log("Sample AI-related data:", aiRelatedData.slice(0, 3));
+          
+          // Transform the API response to match your data structure
+          const transformedData = aiRelatedData.map(item => {
+            // Extract country from implementers array
+            let country = 'Unknown';
+            if (item.implementers && item.implementers.length > 0) {
+              country = item.implementers[0].name;
+            }
+            
+            // Create a more detailed description if we have policy info
+            let fullDescription = item.description || 'No description available';
+            if (item.policy_area || item.policy_instrument) {
+              const policyInfo = [];
+              if (item.policy_area) policyInfo.push(`Policy Area: ${item.policy_area}`);
+              if (item.policy_instrument) policyInfo.push(`Policy Instrument: ${item.policy_instrument}`);
+              fullDescription = `${fullDescription}\n\n${policyInfo.join(' | ')}`;
+            }
+            
+            return {
+              country: country,
+              interventionName: item.title || 'Untitled Intervention',
+              interventionStatus: item.status || 'Unknown Status',
+              eventDate: item.date || 'Unknown Date',
+              eventDescription: fullDescription,
+              actionType: item.event_type || item.action_type || 'Unknown Action',
+              SourceURL: item.url || '#'
+            };
+          });
+          
+          console.log("Transformed data sample:", transformedData.slice(0, 3));
+          console.log("Countries found:", [...new Set(transformedData.map(d => d.country))].slice(0, 20));
+          
+          worldwideLegislationData.push(...transformedData);
+          
+          container.innerHTML = `
+            <p>Loaded ${worldwideLegislationData.length} AI-related regulations from around the world.</p>
+            <p>Click on a country to view specific regulations.</p>
+          `;
+          
+        } catch (error) {
+          console.error("Error loading worldwide legislation data:", error);
+          // Silently fail - don't show anything to the user
+          container.innerHTML = "";
+        } finally {
+          isLoadingWorldwideData = false;
+        }
+      }
+
+      // Navigation menu functionality
+      document
+        .getElementById("us-link")
+        .addEventListener("click", function (e) {
+          e.preventDefault();
+          document.getElementById("us").style.display = "block";
+          document.getElementById("worldwide").style.display = "none";
+          document.getElementById("us-footer").style.display = "block";
+          document.getElementById("worldwide-footer").style.display = "none";
+          this.classList.add("active");
+          document.getElementById("worldwide-link").classList.remove("active");
+        });
+
+      document
+        .getElementById("worldwide-link")
+        .addEventListener("click", function (e) {
+          e.preventDefault();
+          document.getElementById("us").style.display = "none";
+          document.getElementById("worldwide").style.display = "block";
+          document.getElementById("us-footer").style.display = "none";
+          document.getElementById("worldwide-footer").style.display = "block";
+          this.classList.add("active");
+          document.getElementById("us-link").classList.remove("active");
+          if (worldwideLegislationData.length === 0) {
+            loadWorldwideData();
+          }
+        });
+
+      // Initial load - preload worldwide data
+      // You can comment this out if you only want to load when user clicks Global tab
+      // loadWorldwideData();
+    </script>
+  </body>
+</html>
