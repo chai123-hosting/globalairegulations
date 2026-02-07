@@ -226,6 +226,19 @@
       </footer>
     </main>
     <script>
+      // ========================================
+      // CONFIGURATION: ADD YOUR API KEY HERE
+      // ========================================
+      // Get your free API key from: https://digitalpolicyalert.org/account/api-keys
+      // This is REQUIRED for the worldwide map to work reliably.
+      // 
+      // IMPORTANT: If deploying publicly, use environment variables or a backend proxy
+      // to keep your API key secure. For testing/personal use, you can add it here:
+      
+      const DPA_API_KEY = '198f8bd50e6f05610cd1088e4f3a4b387e375ce8'; // <-- API KEY ADDED
+      
+      // ========================================
+      
       const stateNameToAbbreviation = {
         Alabama: "AL",
         Alaska: "AK",
@@ -288,9 +301,6 @@
       const CACHE_TIMESTAMP_KEY = 'worldwideRegulationsTimestamp';
       const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
       
-      // OPTIONAL: Add your API key here for testing (don't commit to public repos)
-      // Leave empty for production - will use public endpoint with CORS proxy
-      const DPA_API_KEY = ''; // Format: 'your-api-key-here'
 
       // Function to check if cache is valid
       function isCacheValid() {
