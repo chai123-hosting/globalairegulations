@@ -811,9 +811,9 @@
           const apiKey = "198f8bd50e6f05610cd1088e4f3a4b387e375ce8";
           const allData = [];
           let offset = 0;
-          const limit = 100; // Reduced from 1000 for testing - adjust as needed
+          const limit = 100;
           let hasMoreData = true;
-          let maxFetches = 10; // Limit to 10 fetches (1000 total entries max)
+          let maxFetches = 5; // Reduced from 10 to 5 for faster loading (500 total entries)
           let fetchCount = 0;
           
           // Fetch data with pagination
@@ -821,7 +821,7 @@
             console.log(`Fetching data at offset ${offset}...`);
             
             const statusEl = document.getElementById('load-status');
-            if (statusEl) statusEl.textContent = `Fetching batch ${fetchCount + 1}...`;
+            if (statusEl) statusEl.textContent = `Fetching page ${fetchCount + 1} of ${maxFetches}...`;
             
             const requestBody = {
               limit: limit,
@@ -850,10 +850,11 @@
               const errorText = await response.text();
               console.error("API Error Response:", errorText);
               
-              // Check if it's a rate limit error
+              // Check if it's a rate limit error - stop fetching but keep what we have
               if (response.status === 403 && errorText.includes("Rate limit")) {
-                console.error("Rate limit reached - silently failing");
-                throw new Error(`Rate limit reached. The API allows a maximum of 1000 entries per 24 hours. Please try again tomorrow or contact the API provider for increased limits.`);
+                console.log(`Rate limit reached after fetching ${allData.length} entries. Using data collected so far.`);
+                hasMoreData = false;
+                break; // Exit the loop but continue processing with data we have
               }
               
               throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
