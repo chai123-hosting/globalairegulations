@@ -798,9 +798,65 @@
       const worldwideLegislationData = [];
       let isLoadingWorldwideData = false;
 
+      // Cache functions for localStorage
+      const CACHE_KEY = 'worldwideAIRegulations';
+      const CACHE_TIMESTAMP_KEY = 'worldwideAIRegulationsTimestamp';
+      const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+      function getCachedData() {
+        try {
+          const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+          if (!timestamp) return null;
+          
+          const age = Date.now() - parseInt(timestamp);
+          if (age > CACHE_DURATION) {
+            console.log("Cache expired");
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+            return null;
+          }
+          
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const data = JSON.parse(cached);
+            console.log(`Loaded ${data.length} regulations from cache (age: ${Math.round(age / 1000 / 60)} minutes)`);
+            return data;
+          }
+        } catch (error) {
+          console.error("Error reading cache:", error);
+        }
+        return null;
+      }
+
+      function saveCachedData(data) {
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+          console.log(`Cached ${data.length} regulations`);
+        } catch (error) {
+          console.error("Error saving cache:", error);
+        }
+      }
+
       async function loadWorldwideData() {
         if (isLoadingWorldwideData || worldwideLegislationData.length > 0) {
           return; // Prevent duplicate loading
+        }
+        
+        // Check cache first
+        const cachedData = getCachedData();
+        if (cachedData && cachedData.length > 0) {
+          worldwideLegislationData.push(...cachedData);
+          const container = document.getElementById("worldwide-container");
+          const uniqueCountries = [...new Set(cachedData.map(d => d.country))].sort();
+          container.innerHTML = `
+            <p style="background-color: #d4edda; padding: 15px; border-radius: 5px; border: 1px solid #c3e6cb;">
+              <strong>✓ Data loaded from cache!</strong><br>
+              ${cachedData.length} AI-related regulations from ${uniqueCountries.length} countries/regions available.<br>
+              Click on a country on the map to view specific regulations.
+            </p>
+          `;
+          return;
         }
         
         isLoadingWorldwideData = true;
@@ -980,9 +1036,17 @@
           
           worldwideLegislationData.push(...transformedData);
           
+          // Save to cache
+          saveCachedData(transformedData);
+          
+          const uniqueCountries = [...new Set(transformedData.map(d => d.country))].sort();
           container.innerHTML = `
-            <p>Loaded ${worldwideLegislationData.length} AI-related regulations from around the world.</p>
-            <p>Click on a country to view specific regulations.</p>
+            <p style="background-color: #d4edda; padding: 15px; border-radius: 5px; border: 1px solid #c3e6cb;">
+              <strong>✓ Data loaded successfully!</strong><br>
+              ${worldwideLegislationData.length} AI-related regulations from ${uniqueCountries.length} countries/regions.<br>
+              Data cached for 24 hours.<br>
+              Click on a country to view specific regulations.
+            </p>
           `;
           
         } catch (error) {
