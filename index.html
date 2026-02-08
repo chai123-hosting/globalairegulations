@@ -900,11 +900,13 @@
               offset += limit;
               fetchCount++;
               
-              // Check if we've fetched all available data
+              // Continue fetching if we got a full page (might be more data)
               if (results.length < limit) {
+                console.log("Received partial page - no more data available");
                 hasMoreData = false;
               }
             } else {
+              console.log("No results returned - stopping");
               hasMoreData = false;
             }
           }
@@ -916,43 +918,10 @@
             console.log("Sample raw data items:", allData.slice(0, 3));
           }
           
-          // Filter for AI-related content
-          const aiRelatedData = allData.filter(item => {
-            const searchText = (
-              (item.title || '') + ' ' +
-              (item.description || '')
-            ).toLowerCase();
-            
-            const aiTerms = [
-              'artificial intelligence',
-              'machine learning',
-              'ai ',
-              ' ai',
-              'neural network',
-              'deep learning',
-              'generative ai',
-              'algorithmic',
-              'automation',
-              'ai-powered',
-              'ai system',
-              'ai model',
-              'ai act'
-            ];
-            
-            const isAiRelated = aiTerms.some(term => searchText.includes(term));
-            
-            // Log first few items to see what's being filtered
-            if (allData.indexOf(item) < 5) {
-              console.log(`Item ${allData.indexOf(item)} - AI Related: ${isAiRelated}`, {
-                title: item.title,
-                searchText: searchText.substring(0, 200)
-              });
-            }
-            
-            return isAiRelated;
-          });
-          
-          console.log(`AI-related entries: ${aiRelatedData.length}`);
+          // Since we filtered by policy_area:6 at the API, all results should already be AI-related
+          // Remove the aggressive client-side filtering to keep all API results
+          console.log(`Keeping all ${allData.length} AI-filtered results from API (policy_area: 6)`);
+          const aiRelatedData = allData;
           console.log("Sample AI-related data:", aiRelatedData.slice(0, 3));
           
           // Transform the API response to match your data structure
