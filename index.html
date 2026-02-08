@@ -825,10 +825,11 @@
             
             const requestBody = {
               limit: limit,
-              offset: offset,
-              request_data: {
-                policy_area: [6]  // 6 = "Artificial intelligence" from API docs
-              }
+              offset: offset
+              // Temporarily removing policy_area filter to see total data available
+              // request_data: {
+              //   policy_area: [6]  // 6 = "Artificial intelligence" from API docs
+              // }
             };
             
             console.log("Sending request body:", JSON.stringify(requestBody, null, 2));
@@ -918,10 +919,31 @@
             console.log("Sample raw data items:", allData.slice(0, 3));
           }
           
-          // Since we filtered by policy_area:6 at the API, all results should already be AI-related
-          // Remove the aggressive client-side filtering to keep all API results
-          console.log(`Keeping all ${allData.length} AI-filtered results from API (policy_area: 6)`);
-          const aiRelatedData = allData;
+          // Without API policy_area filter, do client-side AI filtering
+          const aiTerms = [
+            'artificial intelligence', 'machine learning', 'ai ', ' ai',
+            'neural network', 'deep learning', 'generative ai', 'algorithmic',
+            'automation', 'ai-powered', 'ai system', 'ai model', 'ai act',
+            'ai regulation', 'algorithm', 'automated decision'
+          ];
+          
+          const aiRelatedData = allData.filter(item => {
+            // Check if policy_area field indicates AI
+            const policyArea = item.policy_area || '';
+            if (policyArea && typeof policyArea === 'string' && 
+                policyArea.toLowerCase().includes('artificial intelligence')) {
+              return true;
+            }
+            
+            // Keyword search in title and description
+            const searchText = (
+              (item.title || '') + ' ' + (item.description || '')
+            ).toLowerCase();
+            
+            return aiTerms.some(term => searchText.includes(term));
+          });
+          
+          console.log(`AI-related entries: ${aiRelatedData.length} out of ${allData.length} total (using client-side filtering)`);
           console.log("Sample AI-related data:", aiRelatedData.slice(0, 3));
           
           // Transform the API response to match your data structure
@@ -948,7 +970,7 @@
               eventDate: item.date || 'Unknown Date',
               eventDescription: fullDescription,
               actionType: item.event_type || item.action_type || 'Unknown Action',
-              SourceURL: item.url || (item.id ? `https://digitalpolicyalert.org/event/${item.id}` : '#')
+              SourceURL: item.url || (item.id ? `https://digitalpolicyalert.org/change/${item.id}` : '#')
             };
           });
           
