@@ -801,7 +801,7 @@
       // Cache functions for localStorage
       const CACHE_KEY = 'worldwideAIRegulations';
       const CACHE_TIMESTAMP_KEY = 'worldwideAIRegulationsTimestamp';
-      const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+      const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours - refreshes daily for new regulations
 
       function getCachedData() {
         try {
@@ -866,108 +866,55 @@
         try {
           const apiKey = "198f8bd50e6f05610cd1088e4f3a4b387e375ce8";
           const allData = [];
-          let offset = 0;
           const limit = 100;
-          let hasMoreData = true;
-          let maxFetches = 5; // Reduced from 10 to 5 for faster loading (500 total entries)
-          let fetchCount = 0;
+          const maxFetches = 5; // 5 pages = 500 entries total
           
-          // Fetch data with pagination
-          while (hasMoreData && fetchCount < maxFetches) {
-            console.log(`Fetching data at offset ${offset}...`);
+          const statusEl = document.getElementById('load-status');
+          if (statusEl) statusEl.textContent = `Loading ${maxFetches} pages in parallel...`;
+          
+          // PARALLEL LOADING - Fetch all pages at once for 10x speed
+          const fetchPromises = [];
+          for (let page = 0; page < maxFetches; page++) {
+            const offset = page * limit;
+            const requestBody = { limit: limit, offset: offset };
             
-            const statusEl = document.getElementById('load-status');
-            if (statusEl) statusEl.textContent = `Fetching page ${fetchCount + 1} of ${maxFetches}...`;
-            
-            const requestBody = {
-              limit: limit,
-              offset: offset
-              // Temporarily removing policy_area filter to see total data available
-              // request_data: {
-              //   policy_area: [6]  // 6 = "Artificial intelligence" from API docs
-              // }
-            };
-            
-            console.log("Sending request body:", JSON.stringify(requestBody, null, 2));
-            
-            const response = await fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `APIKey ${apiKey}`
-              },
-              body: JSON.stringify(requestBody)
-            });
-            
-            console.log("Got response, status:", response.status);
-            if (statusEl) statusEl.textContent = `Processing response (status: ${response.status})...`;
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error("API Error Response:", errorText);
-              
-              // Check if it's a rate limit error - stop fetching but keep what we have
-              if (response.status === 403 && errorText.includes("Rate limit")) {
-                console.log(`Rate limit reached after fetching ${allData.length} entries. Using data collected so far.`);
-                hasMoreData = false;
-                break; // Exit the loop but continue processing with data we have
-              }
-              
-              throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-            }
-            
-            const data = await response.json();
-            
-            // Debug: Log full API response structure
-            if (offset === 0) {
-              console.log("Full API Response:", data);
-              console.log("Type of data:", typeof data);
-              console.log("Is array:", Array.isArray(data));
-              console.log("Has 'results' property:", data && data.results !== undefined);
-              console.log("Has 'count' property:", data && data.count !== undefined);
-              
-              if (Array.isArray(data) && data.length > 0) {
-                console.log("Array length:", data.length);
-                console.log("First item:", data[0]);
-                console.log("First item keys:", Object.keys(data[0]));
-              } else if (data && data.results && Array.isArray(data.results)) {
-                console.log("Results array length:", data.results.length);
-                if (data.results.length > 0) {
-                  console.log("First result:", data.results[0]);
-                  console.log("First result keys:", Object.keys(data.results[0]));
+            fetchPromises.push(
+              fetch("https://api.globaltradealert.org/api/v1/dpa/events/", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `APIKey ${apiKey}`
+                },
+                body: JSON.stringify(requestBody)
+              })
+              .then(response => {
+                if (!response.ok) {
+                  if (response.status === 403) {
+                    console.log(`Rate limit hit on page ${page + 1}`);
+                    return null;
+                  }
+                  throw new Error(`HTTP error on page ${page + 1}: ${response.status}`);
                 }
-              }
-            }
-            
-            // Handle both response formats: direct array OR results object
-            let results = [];
-            if (Array.isArray(data)) {
-              results = data;
-              console.log("Using data as direct array, length:", results.length);
-            } else if (data && data.results && Array.isArray(data.results)) {
-              results = data.results;
-              console.log("Using data.results array, length:", results.length);
-            } else {
-              console.error("Unexpected API response format:", data);
-            }
-            
-            console.log(`Fetched ${results.length} entries at offset ${offset}`);
-            
-            if (results.length > 0) {
-              allData.push(...results);
-              offset += limit;
-              fetchCount++;
-              
-              // Continue fetching if we got a full page (might be more data)
-              if (results.length < limit) {
-                console.log("Received partial page - no more data available");
-                hasMoreData = false;
-              }
-            } else {
-              console.log("No results returned - stopping");
-              hasMoreData = false;
-            }
+                return response.json();
+              })
+              .then(data => {
+                if (!data) return [];
+                let results = Array.isArray(data) ? data : (data.results || []);
+                console.log(`Page ${page + 1} fetched: ${results.length} entries`);
+                return results;
+              })
+              .catch(error => {
+                console.warn(`Error on page ${page + 1}:`, error);
+                return [];
+              })
+            );
           }
+          
+          // Wait for all to complete
+          const results = await Promise.all(fetchPromises);
+          results.forEach(pageData => {
+            if (pageData && pageData.length > 0) allData.push(...pageData);
+          });
           
           console.log(`Total entries fetched: ${allData.length}`);
           
